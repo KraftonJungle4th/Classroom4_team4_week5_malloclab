@@ -70,6 +70,8 @@ team_t team = {
 
 #define SIZE_T_SIZE (ALIGN(sizeof(size_t)))
 
+static char *heap_listp;
+
 /* 
  * mm_init - initialize the malloc package.
  */
@@ -85,15 +87,17 @@ int mm_init(void)
      */
     
     //4워드의 크기로 heap 초기화
-    void* heap_listp = mem_sbrk(4*WSIZE);
+    heap_listp = mem_sbrk(4*WSIZE);
     if (heap_listp == (void*)-1) 
     // mem_sbrk가 -1을  반환했다면 incr를 음수로 넣었거나 메모리가 꽉 찼다는 말이다.
     // 축소하라는 명령은 거부하며, 메모리를 더 못 늘리는 상황에도 거부한다. 
         return -1;  
-    PUT(heap_listp, 0);
-    PUT(heap_listp + (WSIZE), PACK(DSIZE,1));    
-    PUT(heap_listp + (2*WSIZE), PACK(DSIZE,1));    
-    PUT(heap_listp + (3*WSIZE), PACK(0,1));    
+    // initialization
+    PUT(heap_listp, 0); // unused padding word - 미사용 패딩 워드
+    // 연결과정 동안에 가장자리 조건을 없애주기 위한 속임수 - prologue & epilogue
+    PUT(heap_listp + (WSIZE), PACK(DSIZE,1));  // prologue block header (8/1) does not returned
+    PUT(heap_listp + (2*WSIZE), PACK(DSIZE,1)); // prologue block footer (8/1) does not get returned - blocks assigned via malloc come after this word 
+    PUT(heap_listp + (3*WSIZE), PACK(0,1)); // epilogue block header (0/1) size 0. 
     return 0;
 }
 
