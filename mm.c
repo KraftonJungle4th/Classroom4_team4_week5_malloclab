@@ -75,7 +75,31 @@ team_t team = {
  */
 int mm_init(void)
 {
+    //creating the initial empty heap - 초기 빈 힙공간 만들기 
+    /* 
+     * mem_sbrk - simple model of the sbrk function. Extends the heap 
+     * by incr bytes and returns the start address of the new area. In
+     * this model, the heap cannot be shrunk.
+     * sbrk 함수의 단수화된 형태. 힙을 incr바이트만큼 늘리고 이 새 공간의
+     * 시작 주소를 반환한다. 이 형태의 sbrk함수로는 힙의 크기를 줄일 수 없다.   
+     */
+    
+    //4워드의 크기로 heap 초기화
+    void* heap_listp = mem_sbrk(4*WSIZE);
+    if (heap_listp == (void*)-1) 
+    // mem_sbrk가 -1을  반환했다면 incr를 음수로 넣었거나 메모리가 꽉 찼다는 말이다.
+    // 축소하라는 명령은 거부하며, 메모리를 더 못 늘리는 상황에도 거부한다. 
+        return -1;  
+    PUT(heap_listp, 0);
+    PUT(heap_listp + (WSIZE), PACK(DSIZE,1));    
+    PUT(heap_listp + (2*WSIZE), PACK(DSIZE,1));    
+    PUT(heap_listp + (3*WSIZE), PACK(0,1));    
     return 0;
+}
+
+static void* extend_heap(size_t words)
+{
+
 }
 
 /* 
