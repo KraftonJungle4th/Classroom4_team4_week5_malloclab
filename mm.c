@@ -24,7 +24,7 @@
  ********************************************************/
 team_t team = {
     /* Team name */
-    "ateam",
+    "team4",
     /* First member's full name */
     "Harry Bovik",
     /* First member's email address */
@@ -34,6 +34,32 @@ team_t team = {
     /* Second member's email address (leave blank if none) */
     ""
 };
+
+/* Basic constants and macros */
+#define WSIZE 4 // Word and header/footer size (bytes)
+#define DSIZE 8 // Double word size (bytes)
+#define CHUNKSIZE (1<<12) // Extend heap by this amount - 힙을 이만큼 늘려라 (bytes) 
+
+#define MAX(x,y) ((x>y)? x : y) // If x is greater than y, select x. Otherwise (if y is greater), select y. (max function defined - 맥스함수 정의)
+
+/* Pack a size and allocated bit into a word */
+#define PACK(size, alloc) ((size)|(alloc)) // 비트단위로 OR 연산 수행
+
+/* Read and write a word at address p */
+#define GET(p)          (*(unsigned int *)(p))        // get the address of 'p' 
+#define PUT(p, val)     (*(unsigned int *)(p)=(val))   // put 'val' into address 'p'
+
+/* Read the size and allocated fields from address p */
+#define GET_SIZE(p)     (GET(p) & ~0x7)
+#define GET_ALLOC(p)    (GET(p) & 0x1)
+
+/* Given block ptr bp, compute address of its header and footer */
+#define HDRP(bp)        ((char*)(bp) - WSIZE)
+#define FTRP(bp)        ((char*)(bp) + GET_SIZE(HDRP(bp)) - DSIZE)
+
+/* Given block ptr bp, compute address of next and previous blocks */
+#define NEXT_BLKP(bp)   ((char*)(bp) + GET_SIZE(((char*)(bp)) - WSIZE))
+#define PREV_BLKP(bp)   ((char*)(bp) - GET_SIZE(((char*)(bp)) - DSIZE))
 
 /* single word (4) or double word (8) alignment */
 #define ALIGNMENT 8
@@ -49,6 +75,7 @@ team_t team = {
  */
 int mm_init(void)
 {
+    if (0) return -1;
     return 0;
 }
 
