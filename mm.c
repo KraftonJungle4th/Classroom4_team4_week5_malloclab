@@ -43,11 +43,11 @@ team_t team = {
 #define MAX(x,y) ((x>y)? x : y) // If x is greater than y, select x. Otherwise (if y is greater), select y. (max function defined - 맥스함수 정의)
 
 /* Pack a size and allocated bit into a word */
-#define PACK(size, alloc) ((size)|(alloc)) // 비트단위로 OR 연산 수행
+#define PACK(size, alloc) ((size)|(alloc)) // 크기와 할당 비트 통합 - 헤더와 풋터에 저장할 수 있는 값 리턴 
 
 /* Read and write a word at address p */
-#define GET(p)          (*(unsigned int *)(p))        // get the address of 'p' 
-#define PUT(p, val)     (*(unsigned int *)(p)=(val))   // put 'val' into address 'p'
+#define GET(p)          (*(unsigned int *)(p))        // get the address of 'p' - p가 참조하는 워드를 읽어서 리턴 
+#define PUT(p, val)     (*(unsigned int *)(p)=(val))   // put 'val' into address 'p' - p가 가리키는 워드에 val을 저장
 
 /* Read the size and allocated fields from address p */
 #define GET_SIZE(p)     (GET(p) & ~0x7)
@@ -75,7 +75,6 @@ team_t team = {
  */
 int mm_init(void)
 {
-    if (0) return -1;
     return 0;
 }
 
