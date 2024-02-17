@@ -109,7 +109,7 @@ static void* extend_heap(size_t words) // 힙을 늘려주는 함수 (아래 두
     char *bp;
     size_t size;
 
-    size = (words % 2) ? (words + 1) * WSIZE | (words) * WSIZE; // 8바이트(더블  워드)씩 정렬 유지를 위한 코드
+    size = (words % 2) ? (words + 1) * WSIZE : (words) * WSIZE; // 8바이트(더블  워드)씩 정렬 유지를 위한 코드
     if((long) (bp = mem_sbrk(size)) == -1){ // mem_sbrk 함수를 통해 힙 영역을 늘림(실제로 힙 영역을 늘리는 부분)
         return NULL; // mem_sbrk 실패 시 -1을 반환하기 때문에 예외 처리 코드
     }
