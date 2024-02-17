@@ -101,10 +101,23 @@ int mm_init(void)
     return 0;
 }
 
-static void* extend_heap(size_t words)
+static void* extend_heap(size_t words) // 힙을 늘려주는 함수 (아래 두 가지에 시행됨 1. 힙이 초기화될 때 2. mm_malloc() 호출 시 알맞은 메모리 크기가 없을 때)
 {
+    char *bp;
+    size_t size;
 
+    size = (words % 2) ? (words + 1) * WSIZE | (words) * WSIZE; // 8바이트(더블  워드)씩 정렬 유지를 위한 코드
+    if((long) (bp = mem_sbrk(size)) == -1){ // mem_sbrk 함수를 통해 힙 영역을 늘림(실제로 힙 영역을 늘리는 부분)
+        return NULL; // mem_sbrk 실패 시 -1을 반환하기 때문에 예외 처리 코드
+    }
+    // 각 블록의 헤더와 풋터는 해당 블록의 크기와 할당 비트로 이루어져 있기 때문에 size와 할당 비트를 같이 할당해 주어야 한다. 할당 비트는 0으로 고정
+    PUT(HDRP(bp), PACK(size,0)); // 블록의 헤더 값 할당 
+    PUT(FTRP(bp), PACK(size,0)); // 블록의 풋터 값 할당
+    PUT(HDRP(NEXT_BLKP(bp)), PACK(0,1)); // 힙 자체를 늘려주다 보니 묵시적 가용 리스트의 끝을 나타내는 에필로그 블록 할당이 필수적
+
+    return coalesce(bp); // 단지 늘리기만 했으므로 이전 블록과 연결시켜야함. 또한 단편화를 막기 위해 coalesce 함수 호출이 필요
 }
+
 
 /* 
  * mm_malloc - Allocate a block by incrementing the brk pointer.
@@ -125,8 +138,13 @@ void *mm_malloc(size_t size)
 /*
  * mm_free - Freeing a block does nothing.
  */
-void mm_free(void *ptr)
+void mm_free(void *ptr) // 메모리 반환해주는 코드(= 가용 블록으로 변환) -> 할당비트를 0으로 만들고 coalesce() 호출
 {
+    size_t size = GET_SIZE(HDRP(ptr)); // 크기는 변하지 않고 할당 비트만 바꿔주어야 하니 반환되는 블록의 크기를 가져옴
+
+    PUT(HDRP(ptr), PACK(size, 0)); // 헤더에 할당 비트만 0으로 변환됨
+    PUT(FTRP(ptr), PACK(size, 0)); // 풋터에 할당 비트만 0으로 변환됨
+    coalesce(ptr); // 가용 블록으로 변환이 되어 이전 블록의 연결과 단편화를 막기 위해 coalesce() 호출
 }
 
 /*
