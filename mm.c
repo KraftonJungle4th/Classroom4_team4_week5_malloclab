@@ -148,6 +148,55 @@ void mm_free(void *ptr) // 메모리 반환해주는 코드(= 가용 블록으�
 }
 
 /*
+ * coalesce - 가용 블록들을 병합 시켜주는 함수.
+ * 병합하는 경우에 주변 블록들의 경우의 수는 네가지가 존재한다.
+ *          이 전 | 현 재 | 다 음
+ * case 1:   X      O      X
+ * case 2:   X      O      O
+ * case 3:   O      O      X
+ * case 4:   O      O      O
+ */
+static void *coalesce(void *bp) 
+{
+    // 이전 블록이 사용중인지 확인
+    size_t prev_block_alloc = GET_ALLOC(HDRP(PREV_BLKP(bp))); // 현재 블록 포인터 - DSIZE = 이전 블록의 풋터
+    // 다음 블록이 사용중인지 확인
+    size_t next_block_alloc = GET_ALLOC(HDRP(NEXT_BLKP(bp)));
+    // 현재 블록의 사이즈 구하기
+    size_t block_size = GET_SIZE(HDRP(bp));
+
+    // case 1: 이전, 다음 블록 모두 사용중일 때
+    if (prev_block_alloc && next_block_alloc) return bp;
+
+    // case 2: 이전 블록은 사용중이고, 다음 블록이 비어있을 때 => 현재 블록과 다음 블록 병합
+    else if (prev_block_alloc && !next_block_alloc) {
+        block_size += GET_SIZE(HDRP(NEXT_BLKP(bp))); // 병합했을 때의 크기를 구한다
+        PUT(HDRP(bp), PACK(block_size, 0)); // 현재 블록의 헤더에 병합한 블록 크기를 갱신해준다
+        PUT(FTRP(bp), PACK(block_size, 0)); // 현재 블록의 풋터에 병합한 블록 크기를 갱신해준다
+        // 블록 포인터는 이전과 동일하다
+    }
+    
+    // case 3: 이전 블록이 비어있고, 다음 블록은 사용중일 때 => 이전 블록과 현재 블록 병합
+    else if (!prev_block_alloc && next_block_alloc) {
+        block_size += GET_SIZE(HDRP(PREV_BLKP(bp))); // 병합했을 때의 크기를 구한다
+        PUT(HDRP(PREV_BLKP(bp)), PACK(block_size, 0)); // 이전 블록의 헤더에 병합한 크기를 갱신해준다
+        PUT(FTRP(bp), PACK(block_size, 0)); // 현재 블록의 풋터에 병합한 크기를 갱신해준다
+        bp = PREV_BLKP(bp); // 병합한 블록을 가리키는 포인터로 갱신해준다
+    }
+
+    // case 4: 이전, 다음 블록 모두 비어져있을 때 => 이전 블록, 현재 블록, 다음 블록 병합
+    else {
+        block_size += GET_SIZE(HDRP(PREV_BLKP(bp))); // 이전 블록의 크기를 더한다
+        block_size += GET_SIZE(HDRP(NEXT_BLKP(bp))); // 다음 블록의 크기를 더한다
+        PUT(HDRP(PREV_BLKP(bp)), PACK(block_size, 0)); // 이전 블록의 헤더에 병합한 블록 크기를 갱신해준다
+        bp = PREV_BLKP(bp); // 이전 블록의 포인터로 이동한다
+        PUT(FTRP(bp), PACK(block_size, 0)); // 이동된 포인터 기준으로의 풋터에 병합한 블록 크기를 갱신해준다
+    }
+
+    return bp;
+}
+
+/*
  * mm_realloc - Implemented simply in terms of mm_malloc and mm_free
  */
 void *mm_realloc(void *ptr, size_t size)
