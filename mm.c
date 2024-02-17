@@ -118,31 +118,6 @@ static void* extend_heap(size_t words) // 힙을 늘려주는 함수 (아래 두
     return coalesce(bp); // 단지 늘리기만 했으므로 이전 블록과 연결시켜야함. 또한 단편화를 막기 위해 coalesce 함수 호출이 필요
 }
 
-static void *coalesce(void *bp){
-    size_t size = GET_SIZE(HDRP(bp));
-    size_t next_alloc = GET_ALLOC(HDRP(NEXT_BLKP(bp)));
-    size_t prev_alloc = GET_ALLOC(FTRP(PREV_BLKP(bp)));
-
-    if (next_alloc && prev_alloc){
-        PUT(HDRP(bp),PACK(size,0));
-        PUT(FTRP(bp),PACK(size,0));
-    }else if(!next_alloc && prev_alloc){
-        size += GET_SIZE(HDRP(NEXT_BLKP(bp)));
-        PUT(HDRP(bp),PACK(size,0));
-        PUT(FTRP(NEXT_BLKP(bp)),PACK(size,0));
-    }else if(next_alloc && !prev_alloc){
-        size += GET_SIZE(FTRP(PREV_BLKP(bp)));
-        PUT(HDRP(PREV_BLKP(bp)),PACK(size,0));
-        PUT(FTRP(dp),PACK(size,0));
-        bp = PREV_BLKP(bp);
-    }else{
-        size = size + GET_SIZE(HDRP(NEXT_BLKP(bp))) + GET_SIZE(FTRP(PREV_BLKP(bp)));
-        PUT(HDRP(PREV_BLKP(bp)),PACK(size,0));
-        PUT(FTRP(NEXT_BLKP(bp)),PACK(size,0));
-        bp = PREV_BLKP(bp); 
-    }
-    return bp;
-}
 
 /* 
  * mm_malloc - Allocate a block by incrementing the brk pointer.
