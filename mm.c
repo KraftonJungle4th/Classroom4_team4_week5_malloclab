@@ -101,54 +101,96 @@ int mm_init(void)
     return 0;
 }
 
+static void* extend_heap(size_t words) // 힙을 늘려주는 함수 (아래 두 가지에 시행됨 1. 힙이 초기화될 때 2. mm_malloc() 호출 시 알맞은 메모리 크기가 없을 때)
+{
+    char *bp;
+    size_t size;
+
+    size = (words % 2) ? (words + 1) * WSIZE | (words) * WSIZE; // 8바이트(더블  워드)씩 정렬 유지를 위한 코드
+    if((long) (bp = mem_sbrk(size)) == -1){ // mem_sbrk 함수를 통해 힙 영역을 늘림(실제로 힙 영역을 늘리는 부분)
+        return NULL; // mem_sbrk 실패 시 -1을 반환하기 때문에 예외 처리 코드
+    }
+    // 각 블록의 헤더와 풋터는 해당 블록의 크기와 할당 비트로 이루어져 있기 때문에 size와 할당 비트를 같이 할당해 주어야 한다. 할당 비트는 0으로 고정
+    PUT(HDRP(bp), PACK(size,0)); // 블록의 헤더 값 할당 
+    PUT(FTRP(bp), PACK(size,0)); // 블록의 풋터 값 할당
+    PUT(HDRP(NEXT_BLKP(bp)), PACK(0,1)); // 힙 자체를 늘려주다 보니 묵시적 가용 리스트의 끝을 나타내는 에필로그 블록 할당이 필수적
+
+    return coalesce(bp); // 단지 늘리기만 했으므로 이전 블록과 연결시켜야함. 또한 단편화를 막기 위해 coalesce 함수 호출이 필요
+}
+
+
+/* 
+ * mm_malloc - Allocate a block by incrementing the brk pointer.
+ *     Always allocate a block whose size is a multiple of the alignment.
+ */
+void *mm_malloc(size_t size)
+{
+    int newsize = ALIGN(size + SIZE_T_SIZE);
+    void *p = mem_sbrk(newsize);
+    if (p == (void *)-1)
+	return NULL;
+    else {
+        *(size_t *)p = size;
+        return (void *)((char *)p + SIZE_T_SIZE);
+    }
+}
+
+/*
+ * mm_free - Freeing a block does nothing.
+ */
+void mm_free(void *ptr) // 메모리 반환해주는 코드(= 가용 블록으로 변환) -> 할당비트를 0으로 만들고 coalesce() 호출
+{
+    size_t size = GET_SIZE(HDRP(ptr)); // 크기는 변하지 않고 할당 비트만 바꿔주어야 하니 반환되는 블록의 크기를 가져옴
+
+    PUT(HDRP(ptr), PACK(size, 0)); // 헤더에 할당 비트만 0으로 변환됨
+    PUT(FTRP(ptr), PACK(size, 0)); // 풋터에 할당 비트만 0으로 변환됨
+    coalesce(ptr); // 가용 블록으로 변환이 되어 이전 블록의 연결과 단편화를 막기 위해 coalesce() 호출
+}
+
 /*
  * coalesce - 가용 블록들을 병합 시켜주는 함수.
  * 병합하는 경우에 주변 블록들의 경우의 수는 네가지가 존재한다.
  *          이 전 | 현 재 | 다 음
  * case 1:   X      O      X
- * case 2:   O      O      X
- * case 3:   X      O      O
+ * case 2:   X      O      O
+ * case 3:   O      O      X
  * case 4:   O      O      O
  */
 static void *coalesce(void *bp) 
 {
     // 이전 블록이 사용중인지 확인
-    size_t prev_block_alloc = GET_ALLOC(bp - DSIZE); // 현재 블록 포인터 - DSIZE = 이전 블록의 풋터
+    size_t prev_block_alloc = GET_ALLOC(HDRP(PREV_BLKP(bp))); // 현재 블록 포인터 - DSIZE = 이전 블록의 풋터
     // 다음 블록이 사용중인지 확인
     size_t next_block_alloc = GET_ALLOC(HDRP(NEXT_BLKP(bp)));
     // 현재 블록의 사이즈 구하기
-    size_t cur_block_size = GET_SIZE(HDRP(bp));
+    size_t block_size = GET_SIZE(HDRP(bp));
 
     // case 1: 이전, 다음 블록 모두 사용중일 때
     if (prev_block_alloc && next_block_alloc) return bp;
 
-    // case 2: 이전 블록이 비어있고, 다음 블록은 사용중일 때 => 이전 블록과 현재 블록 병합
-    if (!prev_block_alloc && next_block_alloc) {
-        size_t prev_block_size = GET_SIZE(bp - DSIZE); // 이전 블록의 크기를 구한다
-        size_t total_block_size = prev_block_size + cur_block_size; // 병합했을 때의 크기를 구한다
-        PUT(HDRP(PREV_BLKP(bp)), total_block_size); // 이전 블록의 헤더에 병합한 크기를 갱신해준다
-        PUT(FTRP(bp), total_block_size); // 현재 블록의 풋터에 병합한 크기를 갱신해준다
-        bp = PREV_BLKP(bp); // 병합한 블록을 가리키는 포인터로 갱신해준다
-    }
-
-    // case 3: 이전 블록은 사용중이고, 다음 블록이 비어있을 때 => 현재 블록과 다음 블록 병합
-    if (prev_block_alloc && !next_block_alloc) {
-        size_t next_block_size = GET_SIZE(HDRP(NEXT_BLKP(bp))); // 다음 블록의 크기를 구한다
-        size_t total_block_size = cur_block_size + next_block_size; // 병합했을 때의 크기를 구한다
-        PUT(HDRP(bp), total_block_size); // 현재 블록의 헤더에 병합한 블록 크기를 갱신해준다
-        PUT(FTRP(bp), total_block_size); // 현재 블록의 풋터에 병합한 블록 크기를 갱신해준다
+    // case 2: 이전 블록은 사용중이고, 다음 블록이 비어있을 때 => 현재 블록과 다음 블록 병합
+    else if (prev_block_alloc && !next_block_alloc) {
+        block_size += GET_SIZE(HDRP(NEXT_BLKP(bp))); // 병합했을 때의 크기를 구한다
+        PUT(HDRP(bp), PACK(block_size, 0)); // 현재 블록의 헤더에 병합한 블록 크기를 갱신해준다
+        PUT(FTRP(bp), PACK(block_size, 0)); // 현재 블록의 풋터에 병합한 블록 크기를 갱신해준다
         // 블록 포인터는 이전과 동일하다
     }
     
+    // case 3: 이전 블록이 비어있고, 다음 블록은 사용중일 때 => 이전 블록과 현재 블록 병합
+    else if (!prev_block_alloc && next_block_alloc) {
+        block_size += GET_SIZE(HDRP(PREV_BLKP(bp))); // 병합했을 때의 크기를 구한다
+        PUT(HDRP(PREV_BLKP(bp)), PACK(block_size, 0)); // 이전 블록의 헤더에 병합한 크기를 갱신해준다
+        PUT(FTRP(bp), PACK(block_size, 0)); // 현재 블록의 풋터에 병합한 크기를 갱신해준다
+        bp = PREV_BLKP(bp); // 병합한 블록을 가리키는 포인터로 갱신해준다
+    }
+
     // case 4: 이전, 다음 블록 모두 비어져있을 때 => 이전 블록, 현재 블록, 다음 블록 병합
-    if (!prev_block_alloc && !next_block_alloc) {
-        size_t prev_block_size = GET_SIZE(bp - DSIZE); // 이전 블록의 크기를 구한다
-        size_t next_block_size = GET_SIZE(HDRP(NEXT_BLKP(bp))); // 다음 블록의 크기를 구한다
-        size_t total_block_size = prev_block_size + cur_block_size + next_block_size; // 병합했을 때의 크기를 구한다
-        
-        PUT(HDRP(PREV_BLKP(bp)), total_block_size); // 이전 블록의 헤더에 병합한 블록 크기를 갱신해준다
+    else {
+        block_size += GET_SIZE(HDRP(PREV_BLKP(bp))); // 이전 블록의 크기를 더한다
+        block_size += GET_SIZE(HDRP(NEXT_BLKP(bp))); // 다음 블록의 크기를 더한다
+        PUT(HDRP(PREV_BLKP(bp)), PACK(block_size, 0)); // 이전 블록의 헤더에 병합한 블록 크기를 갱신해준다
         bp = PREV_BLKP(bp); // 이전 블록의 포인터로 이동한다
-        PUT(FTRP(bp), total_block_size); // 이동된 포인터 기준으로의 풋터에 병합한 블록 크기를 갱신해준다
+        PUT(FTRP(bp), PACK(block_size, 0)); // 이동된 포인터 기준으로의 풋터에 병합한 블록 크기를 갱신해준다
     }
 
     return bp;
