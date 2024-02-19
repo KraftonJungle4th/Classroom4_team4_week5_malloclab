@@ -71,7 +71,10 @@ team_t team = {
 #define SIZE_T_SIZE (ALIGN(sizeof(size_t)))
 
 static char *heap_listp;
-
+static void place(void *bp, size_t asize);
+static void *find_fit(size_t asize);
+static void *coalesce(void *bp);
+static void *extend_heap(size_t words);
 /* 
  * mm_init - initialize the malloc package.
  */
