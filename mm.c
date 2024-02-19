@@ -91,13 +91,27 @@ int mm_init(void)
         return -1;                  
     }
     PUT(heap_listp, 0);                                         //맨 앞에 스타트 지점(0으로 채워줌)
-    PUT(heap_listp + (1 * WSIZE), PACK(MINIMUM, 1));            //블럭의 헤더 부분으로 사이즈(MINIMUM)와 할당여부(1)를 넣어줌
-    PUT(heap_listp + (2 * WSIZE), 0);                           //블럭에서 P를 가리킬 위치
-    PUT(heap_listp + (3 * WSIZE), 0);                           //블럭에서 N을 가리킬 위치
-    PUT(heap_listp + MINIMUM, PACK(MINIMUM,1));                 //블럭의 푸터 부분(중간에 8바이트는 왜 비워둘까?)
-    PUT(heap_listp + WSIZE + MINIMUM, PACK(0,1));               //Epilogue부분으로 끝을 알리도록 사이즈는 0, 할당여부는 1을 넣어줌
+    PUT(heap_listp + (1 * WSIZE), PACK(DSIZE, 1));              // 프롤로그 헤더
+    PUT(heap_listp + (2 * WSIZE), PACK(DSIZE, 1));              // 프롤로그 풋터
+    PUT(heap_listp + (3 * WSIZE), PACK(16, 1));            //블럭의 헤더 
+    PUT(heap_listp + (4 * WSIZE), 0);                           //블럭에서 P를 가리킬 위치
+    PUT(heap_listp + (5 * WSIZE), 0);                           //블럭에서 N을 가리킬 위치
+    PUT(heap_listp + (8 * WSIZE), PACK(16,1));             // 블럭 풋터
+    PUT(heap_listp + (9 * WSIZE), PACK(0,1));              // 에필로그 풋터            
+    // PUT(heap_listp + (12*WSIZE) + MINIMUM, PACK(0,1));               //Epilogue부분으로 끝을 알리도록 사이즈는 0, 할당여부는 1을 넣어줌
     
-    free_listp = heap_listp + DSIZE;                            //free_listp의 위치를 옮겨줌(헤더 바로 뒤) = free list 포인터를 초기화한다.
+
+    // PUT(heap_listp, 0);                                         //맨 앞에 스타트 지점(0으로 채워줌)
+    // PUT(heap_listp + (1 * WSIZE), PACK(DSIZE, 1));              // 프롤로그 헤더
+    // PUT(heap_listp + (2 * WSIZE), PACK(DSIZE, 1));              // 프롤로그 풋터
+    // PUT(heap_listp + (3 * WSIZE), PACK(MINIMUM, 1));            //블럭의 헤더 
+    // PUT(heap_listp + (4 * WSIZE), 0);                           //블럭에서 P를 가리킬 위치
+    // PUT(heap_listp + (5 * WSIZE), 0);                           //블럭에서 N을 가리킬 위치
+    // PUT(heap_listp + (6 * WSIZE), PACK(MINIMUM,1));             // 블럭 풋터
+    // PUT(heap_listp + (7 * WSIZE), PACK(0,1));      
+
+    heap_listp += (2*WSIZE);
+    free_listp = heap_listp + (2*WSIZE);                            //free_listp의 위치를 옮겨줌(헤더 바로 뒤) = free list 포인터를 초기화한다.
     
     if (extendHeap(CHUNKSIZE / WSIZE) == NULL) {                //extend가 불가능 하면 -1 리턴해라?
         return -1;                   
