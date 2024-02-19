@@ -271,7 +271,7 @@ static void *find_fit(size_t asize)
         if (!GET_ALLOC(HDRP(bp)) && GET_SIZE(HDRP(bp)) >= asize) return bp;
         bp = NEXT_BLKP(bp);
     }
-    return NULL;    // NO fi
+    return NULL;
 }
 
 
