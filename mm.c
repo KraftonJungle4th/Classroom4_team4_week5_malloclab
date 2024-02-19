@@ -126,6 +126,25 @@ static void* extend_heap(size_t words) // 힙을 늘려주는 함수 (아래 두
     return coalesce(bp); // 단지 늘리기만 했으므로 이전 블록과 연결시켜야함. 또한 단편화를 막기 위해 coalesce 함수 호출이 필요
 }
 
+static void place(void *bp, size_t asize){
+    int total_size = GET_SIZE(bp);
+
+
+    //만약 블록 크기가 요청받은 크기보다 클 시, 남은 부분을 0으로 설정하여 다시 가용 리스트로 반환
+    if (total_size-asize >= 2*DSIZE){
+        //요청받은 크기 asize만큼 할당 (alloc)
+        PUT(HDRP(bp), PACK(asize, 1));
+        PUT(FTRP(bp), PACK(asize, 1));
+        PUT(HDRP(NEXT_BLKP(bp)), PACK((total_size - asize), 0));
+        PUT(FTRP(NEXT_BLKP(bp)), PACK((total_size - asize), 0));
+    }
+
+    else{
+        PUT(HDRP(bp), PACK(total_size, 1));
+        PUT(FTRP(bp), PACK(total_size, 1));
+    }
+}
+
 
 /* 
  * mm_malloc - Allocate a block by incrementing the brk pointer.
