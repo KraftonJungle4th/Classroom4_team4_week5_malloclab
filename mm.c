@@ -72,6 +72,11 @@ team_t team = {
 
 static char *heap_listp;
 
+static void *extend_heap(size_t words);
+static void *coalesce(void *bp);
+static void *find_fit(size_t asize);
+static void place(void *bp, size_t asize);
+
 /* 
  * mm_init - initialize the malloc package.
  */
@@ -109,7 +114,7 @@ static void* extend_heap(size_t words) // 힙을 늘려주는 함수 (아래 두
     char *bp;
     size_t size;
 
-    size = (words % 2) ? (words + 1) * WSIZE | (words) * WSIZE; // 8바이트(더블  워드)씩 정렬 유지를 위한 코드
+    size = (words % 2) ? (words + 1) * WSIZE : (words) * WSIZE; // 8바이트(더블  워드)씩 정렬 유지를 위한 코드
     if((long) (bp = mem_sbrk(size)) == -1){ // mem_sbrk 함수를 통해 힙 영역을 늘림(실제로 힙 영역을 늘리는 부분)
         return NULL; // mem_sbrk 실패 시 -1을 반환하기 때문에 예외 처리 코드
     }
@@ -258,9 +263,16 @@ int mm_check(void){
     return 1;
 }
 
-
-
-
+static void *find_fit(size_t asize) 
+{
+    void *bp = NEXT_BLKP(heap_listp);
+    // 에필로그 헤더를 만날 때까지 반복
+    while (GET_SIZE(HDRP(bp)) > 0) {
+        if (!GET_ALLOC(HDRP(bp)) && GET_SIZE(HDRP(bp)) >= asize) return bp;
+        bp = NEXT_BLKP(bp);
+    }
+    return NULL;    // NO fi
+}
 
 
 
