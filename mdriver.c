@@ -22,6 +22,7 @@
 #include "config.h"
 #include <bits/getopt_core.h>
 
+
 /**********************
  * Constants and macros
  **********************/

@@ -109,7 +109,7 @@ int mm_init(void)
     return 0;
 }
 
-static void* extend_heap(size_t words) // 힙을 늘려주는 함수 (아래 두 가지에 시행됨 1. 힙이 초기화될 때 2. mm_malloc() 호출 시 알맞은 메모리 크기가 없을 때)
+static void *extend_heap(size_t words) // 힙을 늘려주는 함수 (아래 두 가지에 시행됨 1. 힙이 초기화될 때 2. mm_malloc() 호출 시 알맞은 메모리 크기가 없을 때)
 {
     char *bp;
     size_t size;
@@ -258,20 +258,31 @@ static void *coalesce(void *bp)
 /*
  * mm_realloc - Implemented simply in terms of mm_malloc and mm_free
  */
+// realloc의 매개변수 중 size가 0이면 free, ptr = null이고 사이즈 값만 받으면 malloc
+// 재할당은 원하는 크기만큼 원래 블록 자체를 조절하는 것이 아니라 새로운 블록을 찾아서 원하는 크기 만큼의 블록을 새롭게 할당하는 것
 void *mm_realloc(void *ptr, size_t size)
 {
-    void *oldptr = ptr;
-    void *newptr;
-    size_t copySize;
-    
-    newptr = mm_malloc(size);
-    if (newptr == NULL)
-      return NULL;
-    copySize = *(size_t *)((char *)oldptr - SIZE_T_SIZE);
-    if (size < copySize)
-      copySize = size;
-    memcpy(newptr, oldptr, copySize);
-    mm_free(oldptr);
+    void *newptr; // 새로운 블록
+    size_t copySize; // 이전 블록의 복사할 크기
+
+    if (ptr == NULL){ // ptr이 NULL인 경우 -> ptr을 재할당을 해주어야 하는데 원래 블록이 없으니 새롭게 만들어준다.
+        return mm_malloc(size); // malloc 시행
+    }
+
+    if (size == 0){ // size가 0인 경우 -> 해당 블록의 크기를 0으로 조절하는 것이다 보니 free와 동일한 동작을 수행한다.
+        mm_free(ptr);
+        return 0;
+    }
+
+    newptr = mm_malloc(size); // 원하는 크기만큼 새로운 블록을 만든다.
+    if (newptr == NULL) 
+        return NULL;
+
+    copySize = GET_SIZE(HDRP(ptr)) - DSIZE; // 이전에 할당된 메모리 블록의 크기 = payload 부분만 필요
+    if (size < copySize) // 이전 블록의 크기가 큰 경우
+        copySize = size; // 위의 경우라면 메모리 블록을 복사하면 메모리가 넘칠 수 있기 때문에 예외 처리를 해준다.
+    memcpy(newptr, ptr, copySize); // 재할당은 크기를 조절하는 것이여서 새롭게 생기는 블록에 이전 블록의 데이터가 있어야 하기 때문애 데이터 복사가 필요하다.
+    mm_free(ptr); // 원래 블록 할당 해제
     return newptr;
 }
 
