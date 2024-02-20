@@ -24,15 +24,15 @@
  ********************************************************/
 team_t team = {
     /* Team name */
-    "team4",
+    "TEAM 4",
     /* First member's full name */
-    "Harry Bovik",
+    "Koesnam - Jaenam615 - GEUMDOHYEON",
     /* First member's email address */
-    "bovik@cs.cmu.edu",
+    "-",
     /* Second member's full name (leave blank if none) */
-    "",
+    "-",
     /* Second member's email address (leave blank if none) */
-    ""
+    "-"
 };
 
 /* Basic constants and macros */
