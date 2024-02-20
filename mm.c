@@ -9,9 +9,9 @@
 #include "memlib.h"
 
 team_t team = {
-    "team 5",
-    "Juhee Lee",
-    "juhee971204@gmail.com",
+    "team 4",
+    "DOHYEON GEUM",
+    "dohyeon0518@gmail.com",
     "",
     ""};
 
