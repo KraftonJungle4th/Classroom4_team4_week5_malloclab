@@ -6,6 +6,10 @@
 
 ### next_fit
 ![Alt text](./images/next_fit.png)
+
+### best_fit
+![Alt text](./images/best_fit.png)
+
 #####################################################################
 # CS:APP Malloc Lab
 # Handout files for students
