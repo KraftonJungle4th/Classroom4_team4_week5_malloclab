@@ -71,7 +71,6 @@ team_t team = {
 #define SIZE_T_SIZE (ALIGN(sizeof(size_t)))
 
 static char *heap_listp;
-static char *last_find_bp;
 
 static void *extend_heap(size_t words);
 static void *coalesce(void *bp);
@@ -105,7 +104,7 @@ int mm_init(void)
     PUT(heap_listp + (2*WSIZE), PACK(DSIZE,1)); // prologue block footer (8/1) does not get returned - blocks assigned via malloc come after this word 
     PUT(heap_listp + (3*WSIZE), PACK(0,1)); // epilogue block header (0/1) size 0. 
     heap_listp += (2*WSIZE);
-    last_find_bp = heap_listp;;
+
     if (extend_heap(CHUNKSIZE/WSIZE) == NULL) return -1; //1024
     return 0;
 }
@@ -183,7 +182,6 @@ void *mm_malloc(size_t size)
     */
     if ((bp = find_fit(asize)) != NULL){
         place(bp, asize);
-        last_find_bp = bp;
         return bp;
     }
 
@@ -193,7 +191,6 @@ void *mm_malloc(size_t size)
     if((bp = extend_heap(extendsize/WSIZE)) == NULL) return NULL; // 늘릴 수 없는 상황이면 (incr가 음수로 들어갔거나), 메모리가 부족하면) NULL 반환
     //위와 비슷하다. 새로운 영역의 주소가 위 줄에서 bp에 넣어졌으며, 해당 위치에 asize크기의 블록을 할당한다.
     place(bp, asize);
-    last_find_bp = bp;
     return bp;
 }
 
@@ -229,7 +226,6 @@ static void *coalesce(void *bp)
 
     // case 1: 이전, 다음 블록 모두 사용중일 때
     if (prev_block_alloc && next_block_alloc) {
-        last_find_bp = bp;
         return bp;
     }
 
@@ -239,16 +235,14 @@ static void *coalesce(void *bp)
         PUT(HDRP(bp), PACK(block_size, 0)); // 현재 블록의 헤더에 병합한 블록 크기를 갱신해준다
         PUT(FTRP(bp), PACK(block_size, 0)); // 현재 블록의 풋터에 병합한 블록 크기를 갱신해준다
         // 블록 포인터는 이전과 동일하다
-        last_find_bp = bp;
         return bp;
     }
     // case 3: 이전 블록이 비어있고, 다음 블록은 사용중일 때 => 이전 블록과 현재 블록 병합
-    if (!prev_block_alloc && next_block_alloc) {
+    else if (!prev_block_alloc && next_block_alloc) {
         block_size += GET_SIZE(HDRP(PREV_BLKP(bp))); // 병합했을 때의 크기를 구한다
         PUT(HDRP(PREV_BLKP(bp)), PACK(block_size, 0)); // 이전 블록의 헤더에 병합한 크기를 갱신해준다
         PUT(FTRP(bp), PACK(block_size, 0)); // 현재 블록의 풋터에 병합한 크기를 갱신해준다
         bp = PREV_BLKP(bp); // 병합한 블록을 가리키는 포인터로 갱신해준다
-        last_find_bp = bp;
         return bp;
     }
     // case 4: 이전, 다음 블록 모두 비어져있을 때 => 이전 블록, 현재 블록, 다음 블록 병합
@@ -257,7 +251,6 @@ static void *coalesce(void *bp)
     PUT(HDRP(PREV_BLKP(bp)), PACK(block_size, 0)); // 이전 블록의 헤더에 병합한 블록 크기를 갱신해준다
     bp = PREV_BLKP(bp); // 이전 블록의 포인터로 이동한다
     PUT(FTRP(bp), PACK(block_size, 0)); // 이동된 포인터 기준으로의 풋터에 병합한 블록 크기를 갱신해준다
-    last_find_bp = bp;
     return bp;
 }
 
@@ -294,20 +287,21 @@ void *mm_realloc(void *ptr, size_t size)
 
 static void *find_fit(size_t asize) 
 {   
-    char *bp = last_find_bp;
-    // 최근 검색 지점부터 에필로그 헤더를 만날 때까지 반복
+    char *bp = heap_listp;
+    size_t min_diff = __INT_MAX__;
+    char *min_bp = NULL;
     while (GET_SIZE(HDRP(bp)) > 0) {
-        if (!GET_ALLOC(HDRP(bp)) && GET_SIZE(HDRP(bp)) >= asize) return bp;
+        size_t block_size = GET_SIZE(HDRP(bp));
+        if (!GET_ALLOC(HDRP(bp)) && block_size == asize) return bp;
+        if (!GET_ALLOC(HDRP(bp)) && block_size > asize) {
+            if (min_bp == NULL || min_diff > (block_size - asize)) {
+                min_diff = block_size - asize;
+                min_bp = bp;
+            }
+        }
         bp = NEXT_BLKP(bp);
     }
-    // 맨 처음부터 다시 최근 검색 지점까지 재검색
-    bp = heap_listp;
-    while (bp < last_find_bp) {
-        if (!GET_ALLOC(HDRP(bp)) && GET_SIZE(HDRP(bp)) >= asize) return bp;
-        bp = NEXT_BLKP(bp);
-    }
-
-    return NULL;
+    return min_bp;
 }
 
 

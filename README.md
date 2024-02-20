@@ -3,6 +3,9 @@
 ## 묵시적 가용 리스트
 ### first_fit
 ![Alt text](./images/first_fit.png)
+
+### next_fit
+![Alt text](./images/next_fit.png)
 #####################################################################
 # CS:APP Malloc Lab
 # Handout files for students
