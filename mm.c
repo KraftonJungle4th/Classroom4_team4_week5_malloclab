@@ -251,7 +251,7 @@ static void *coalesce(void *bp)
         bp = PREV_BLKP(bp); // 이전 블록의 포인터로 이동한다
         PUT(FTRP(bp), PACK(block_size, 0)); // 이동된 포인터 기준으로의 풋터에 병합한 블록 크기를 갱신해준다
     }
-    last_find_bp = heap_listp;
+    last_find_bp = bp;
     return bp;
 }
 
