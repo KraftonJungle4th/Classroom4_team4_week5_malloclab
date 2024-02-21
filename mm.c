@@ -193,7 +193,6 @@ void *mm_malloc(size_t size)
     if((bp = extend_heap(extendsize/WSIZE)) == NULL) return NULL; // 늘릴 수 없는 상황이면 (incr가 음수로 들어갔거나), 메모리가 부족하면) NULL 반환
     //위와 비슷하다. 새로운 영역의 주소가 위 줄에서 bp에 넣어졌으며, 해당 위치에 asize크기의 블록을 할당한다.
     place(bp, asize);
-    last_find_bp = bp;
     return bp;
 }
 
@@ -228,36 +227,31 @@ static void *coalesce(void *bp)
     size_t block_size = GET_SIZE(HDRP(bp));
 
     // case 1: 이전, 다음 블록 모두 사용중일 때
-    if (prev_block_alloc && next_block_alloc) {
-        last_find_bp = bp;
-        return bp;
-    }
+    if (prev_block_alloc && next_block_alloc) return bp;
 
     // case 2: 이전 블록은 사용중이고, 다음 블록이 비어있을 때 => 현재 블록과 다음 블록 병합
-    if (prev_block_alloc && !next_block_alloc) {
+    else if (prev_block_alloc && !next_block_alloc) {
         block_size += GET_SIZE(HDRP(NEXT_BLKP(bp))); // 병합했을 때의 크기를 구한다
         PUT(HDRP(bp), PACK(block_size, 0)); // 현재 블록의 헤더에 병합한 블록 크기를 갱신해준다
         PUT(FTRP(bp), PACK(block_size, 0)); // 현재 블록의 풋터에 병합한 블록 크기를 갱신해준다
         // 블록 포인터는 이전과 동일하다
-        last_find_bp = bp;
-        return bp;
     }
     // case 3: 이전 블록이 비어있고, 다음 블록은 사용중일 때 => 이전 블록과 현재 블록 병합
-    if (!prev_block_alloc && next_block_alloc) {
+    else if (!prev_block_alloc && next_block_alloc) {
         block_size += GET_SIZE(HDRP(PREV_BLKP(bp))); // 병합했을 때의 크기를 구한다
         PUT(HDRP(PREV_BLKP(bp)), PACK(block_size, 0)); // 이전 블록의 헤더에 병합한 크기를 갱신해준다
         PUT(FTRP(bp), PACK(block_size, 0)); // 현재 블록의 풋터에 병합한 크기를 갱신해준다
         bp = PREV_BLKP(bp); // 병합한 블록을 가리키는 포인터로 갱신해준다
-        last_find_bp = bp;
-        return bp;
     }
     // case 4: 이전, 다음 블록 모두 비어져있을 때 => 이전 블록, 현재 블록, 다음 블록 병합
-    block_size += GET_SIZE(HDRP(PREV_BLKP(bp))); // 이전 블록의 크기를 더한다
-    block_size += GET_SIZE(HDRP(NEXT_BLKP(bp))); // 다음 블록의 크기를 더한다
-    PUT(HDRP(PREV_BLKP(bp)), PACK(block_size, 0)); // 이전 블록의 헤더에 병합한 블록 크기를 갱신해준다
-    bp = PREV_BLKP(bp); // 이전 블록의 포인터로 이동한다
-    PUT(FTRP(bp), PACK(block_size, 0)); // 이동된 포인터 기준으로의 풋터에 병합한 블록 크기를 갱신해준다
-    last_find_bp = bp;
+    else {
+        block_size += GET_SIZE(HDRP(PREV_BLKP(bp))); // 이전 블록의 크기를 더한다
+        block_size += GET_SIZE(HDRP(NEXT_BLKP(bp))); // 다음 블록의 크기를 더한다
+        PUT(HDRP(PREV_BLKP(bp)), PACK(block_size, 0)); // 이전 블록의 헤더에 병합한 블록 크기를 갱신해준다
+        bp = PREV_BLKP(bp); // 이전 블록의 포인터로 이동한다
+        PUT(FTRP(bp), PACK(block_size, 0)); // 이동된 포인터 기준으로의 풋터에 병합한 블록 크기를 갱신해준다
+    }
+    last_find_bp = heap_listp;
     return bp;
 }
 
